@@ -10,10 +10,8 @@ import java.util.regex.Pattern;
 @NoArgsConstructor
 @AllArgsConstructor
 public class SQLTextParser {
-    public static final Pattern REGEXP_CONTEXT = Pattern.compile("(?:(?:(?:else[ ]+if|if|for)\\s*\\()(.*?)(\\))|else)\\s*\\{");
-
     private Context context;
-    private CharSequence text;
+    private CharSequence sql;
 
     public void parse() {
     }

@@ -1,16 +1,10 @@
 package ___.mulum;
 
-import ___.mulum.parser.Context;
-import ___.mulum.parser.IFContext;
-import ___.mulum.parser.RootContext;
-import ___.mulum.parser.SQLTextParser;
-import org.assertj.core.api.Assertions;
-import org.junit.Assert;
+import ___.mulum.parser.*;
 import org.junit.Test;
+import org.springframework.util.StringUtils;
 
 import java.util.regex.Matcher;
-
-import static java.lang.System.out;
 
 public class SQLTextParserTests {
     private static final String SQL =
@@ -31,7 +25,10 @@ public class SQLTextParserTests {
                     "        OR GRP = 'QC')\n" +
                     "  }\n" +
                     "  else { \n" +
+                    "*/ \n" +
                     "   AND GRP IS NULL\n" +
+                    "   AND AGE > 0 \n" +
+                    "/*\n" +
                     "  }\n" +
                     "}\n" +
                     "*/\n" +
@@ -43,40 +40,59 @@ public class SQLTextParserTests {
                     " ORDER BY ID DESC";
 
     @Test
-    public void _01_findIfContext() {
-        Matcher m = SQLTextParser.REGEXP_CONTEXT.matcher(SQL);
+    public void _01_parse() {
+        Context context = new RootContext();
 
-        int length = 0;
-        while (m.find()) {
-            length++;
-
-            for (int i = 0; i < m.groupCount(); i++) {
-                out.println(String.format("%02d-%02d: %s", length, i, m.group(i)));
-            }
-        }
-
-        Assert.assertEquals(length, 9);
-    }
-
-    @Test
-    public void _02_createContext() {
-        Matcher m = SQLTextParser.REGEXP_CONTEXT.matcher(SQL);
-
-        Context root = new RootContext();
+        Matcher m = Context.REGEXP_DYNAMIC_CONTEXT_BEGIN.matcher(SQL);
+        int cursor = 0;
 
         if (m.find()) {
-            final String syntex = m.group(0);
-            final String condition = m.group(1);
+            int start = m.start();
+            String sql = SQL.substring(cursor, start);
 
-            Context ctx = null;
-
-            if (syntex.trim().startsWith("if")) {
-                ctx = new IFContext();
+            if (!StringUtils.isEmpty(sql)) {
+                context.addChild(new PlainContext(context, sql));
+                cursor = start;
             }
+
+            do {
+                final String type = m.group(1).trim().toLowerCase();
+                final String condition = m.group(2).trim();
+                final Context typeContext;
+
+                if (type.startsWith("if")) {
+                    typeContext = new IfContext(context, condition);
+                    cursor = m.end(2);
+                }
+
+
+            }
+            while (m.find(cursor));
         }
+    }
 
-        while (m.find()) {
+    private int findContextEndpoint(Context parent, String sql, int cursor) {
+        Matcher m = Context.REGEXP_DYNAMIC_CONTEXT_BEGIN.matcher(sql);
 
+        if (m.find(cursor)) {
+            Context context = null;
+
+            final String type = m.group(1).trim().toLowerCase();
+            switch (type) {
+                case "if":
+                case "else if":
+                case "else":
+                    context = new IfContext(parent, m.group(2));
+                    break;
+                case "for":
+                    context = new ForContext(parent, m.group(2));
+                    break;
+                default:
+                    throw new IllegalStateException("Unknown type: " + type);
+            }
+
+            parent.addChild(context);
+            return findContextEndpoint(context, sql, cursor);
         }
     }
 }

@@ -1,12 +1,9 @@
 package ___.mulum.parser;
 
-import java.util.List;
-import java.util.Map;
+import java.util.regex.Pattern;
 
 public interface Context {
-    StringBuilder getSql();
-    List<String> getParameterNames();
-    Map<String, Object> getParameters();
+    Pattern REGEXP_DYNAMIC_CONTEXT_BEGIN = Pattern.compile("(?:(?:(?:else[ ]+if|if|for)\\s*\\()(.*?)(\\))|else)\\s*\\{");
 
-    void addContext(Context context);
+    void addChild(Context context);
 }
